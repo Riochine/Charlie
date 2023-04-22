@@ -21,14 +21,6 @@ var createDefaultEngine = function() {
 //Made by TheNosiriN
 // its not complete, it has some bugs, but its still useable
 
-
-const m4URL = 'https://raw.githubusercontent.com/TheNosiriN/Babylon-Assets/master/m4a1.obj';
-const ybotURL = 'https://raw.githubusercontent.com/TheNosiriN/Babylon-Assets/master/ybot.babylon';
-const towerURL = 'https://raw.githubusercontent.com/TheNosiriN/Babylon-Assets/master/tower%20obj/Tower-House%20Design.obj';
-const streetURL = 'https://raw.githubusercontent.com/TheNosiriN/Babylon-Assets/master/street/Street%20environment_V01.obj';
-
-
-
 var firstPerson = false;
 
 //animations
@@ -43,7 +35,7 @@ var jumpAnim = null;
 
 //variables
 var animationBlend = 0.005;
-var mouseSensitivity = 0.0005;
+var mouseSensitivity = 0.01;
 var cameraSpeed = 0.0075;
 var walkSpeed = 0.001;
 var runSpeed = 0.005;
@@ -154,7 +146,7 @@ var createScene = function () {
             mouseMax: 45
         },
         leftRun: {
-            position: new BABYLON.Vector3(0.7, 1.35, -4),
+            position: new BABYLON.Vector3(2, 3, -10),
             fov: 0.8,
             mouseMin: -35,
             mouseMax: 45
@@ -198,64 +190,19 @@ var createScene = function () {
 
     //character
     engine.displayLoadingUI();
-    
-    BABYLON.SceneLoader.ImportMesh("", "", ybotURL, scene, function (newMeshes, particleSystems, skeletons)
-    {
-        skeleton = skeletons[0];
-        var body = newMeshes[1];
-        var joints = newMeshes[0];
-        body.scaling = new BABYLON.Vector3(0.01, 0.01, 0.01);
-        body.rotation.y = BABYLON.Tools.ToRadians(180);
-        joints.parent = body;
-        body.parent = character;
-
-        // BABYLON.SceneLoader.ImportMesh("", "", m4URL, scene, function (newMeshes)
-        // {
-        //     m4 = newMeshes[0];
-        //     m4.scaling = new BABYLON.Vector3(3, 3, 3);
-        //     m4.setPivotPoint(new BABYLON.Vector3(4.5, 0.5, -2), BABYLON.Space.Local);
-
-        //     m4.detachFromBone();
-        //     skeleton.prepare();
-        //     m4.attachToBone(skeleton.bones[37], body);
-
-        //     //m4.position = new BABYLON.Vector3(0.45, -0.05, -0.2).divide(body.scaling);
-        //     m4.rotation = new BABYLON.Vector3(
-        //         BABYLON.Tools.ToRadians(180),
-        //         BABYLON.Tools.ToRadians(-90),
-        //         BABYLON.Tools.ToRadians(90),
-        //     );
-        // });
-        
+    character = createPlayer(scene);
+    main.ellipsoid = new BABYLON.Vector3(0.5, 0.9, 0.5);
+    main.ellipsoidOffset = new BABYLON.Vector3(0, main.ellipsoid.y, 0);
+    main.checkCollisions = true;
+    smallLight.parent = main;
+    character.parent = main;
+    target.parent = main;
+    camera.parent = target;
+    switchCamera(thirdPersonCamera.leftRun);
+    main.position = new BABYLON.Vector3(10,0,10);
 
 
-        body.material = new BABYLON.StandardMaterial("character", scene);
-        joints.material = new BABYLON.StandardMaterial("joints", scene);
-        body.material.diffuseColor = new BABYLON.Color3(0.81, 0.24, 0.24);
-        joints.material.emissiveColor = new BABYLON.Color3(0.19, 0.29, 0.44);
-
-
-        addToMirror(character);
-        addShadows(character);
-		
-
-        main.ellipsoid = new BABYLON.Vector3(0.5, 0.9, 0.5);
-        main.ellipsoidOffset = new BABYLON.Vector3(0, main.ellipsoid.y, 0);
-        main.checkCollisions = true;
-
-        smallLight.parent = main;
-        character.parent = main;
-        target.parent = main;
-
-        camera.parent = target;
-        switchCamera(thirdPersonCamera.leftRun);
-
-        main.position = new BABYLON.Vector3(10,0,10);
-
-
-        engine.hideLoadingUI();
-    }, function(evt){} );
-
+    engine.hideLoadingUI();
 
 
 
@@ -270,24 +217,16 @@ var createScene = function () {
             var mouse = dsm.getDeviceSource(BABYLON.DeviceType.Mouse);
             if (keyboard)
             {
-                if (firstPerson == true){
-                    firstPersonMovement(
-                        keyboard.getInput(87), //W
-                        keyboard.getInput(83), //S
-                        keyboard.getInput(65), //A
-                        keyboard.getInput(68), //D
-                        keyboard.getInput(16), //Shift
-                    );
-                }else{
-                    thirdPersonMovement(
-                        keyboard.getInput(87), //W
-                        keyboard.getInput(83), //S
-                        keyboard.getInput(65), //A
-                        keyboard.getInput(68), //D
-                        keyboard.getInput(32), //Space
-                        keyboard.getInput(16), //Shift
-                    );
-                }
+
+                thirdPersonMovement(
+                    keyboard.getInput(87), //W
+                    keyboard.getInput(83), //S
+                    keyboard.getInput(65), //A
+                    keyboard.getInput(68), //D
+                    keyboard.getInput(32), //Space
+                    keyboard.getInput(16), //Shift
+                );
+                
             }
         }
     });
@@ -362,7 +301,7 @@ var createScene = function () {
 
 
         //jump
-        /*
+        
          if (jump == 1 && jumped == false)
          {
              jumped = true;
@@ -379,13 +318,9 @@ var createScene = function () {
                       jumped = false;
                   }
               }
-             var rr = skeleton.getAnimationRange("None_Jump");
-             var a = scene.beginAnimation(skeleton, rr.from+1, rr.to, false, 1, function(){
-                 jumped = false;console.log("stopped "+rr.from+1+" "+rr.to);
-             });
          }else{
              vsp = gravity.y;
-         }*/
+         }
 
 
         var m = vectorMove.multiply(new BABYLON.Vector3().setAll( speed*deltaTime ));
@@ -455,7 +390,6 @@ var createScene = function () {
         }
     };
 
-
     setupPointerLock();
     scene.detachControl();
     //scenery
@@ -469,43 +403,17 @@ var createScene = function () {
     var boxLight = smallLight.clone();
     boxLight.parent = box;
 
-    // var tower = null;
-    BABYLON.SceneLoader.ImportMesh("", "", towerURL, scene, function (newMeshes)
-    {
-        tower = BABYLON.Mesh.MergeMeshes(newMeshes, true, true, false, false, false);
-        tower.scaling = new BABYLON.Vector3(1.1, 1.1, 1.1);
-        tower.position = new BABYLON.Vector3(0, -0.1, 2);
+/*
         addToMirror(tower);
         addShadows(tower);
-
         tower.checkCollisions = true;
-    });
-
-    var street = null;
-    BABYLON.SceneLoader.ImportMesh("", "", streetURL, scene, function (newMeshes)
-    {
-        street = BABYLON.Mesh.MergeMeshes(newMeshes, true, true, false, false, false);
-        street.scaling = new BABYLON.Vector3(1.2, 1.2, 1.2);
-        street.position = new BABYLON.Vector3(0, -0.1, 0);
-        addToMirror(street);
-        addShadows(street);
-
-        street.checkCollisions = true;
-    });
-
+*/
     
     helper.ground.checkCollisions = true;
     helper.skybox.checkCollisions = true;
     box.checkCollisions = true;
-    var gl = new BABYLON.GlowLayer("gl", scene);
-    var pipeline = new BABYLON.DefaultRenderingPipeline(
-        "pipeline", true, scene, [camera]
-    );
-    pipeline.samples = 4;
-    var ssao = new BABYLON.SSAORenderingPipeline('ssaopipeline', scene, { ssaoRatio: 0.75, combineRatio: 1.0 }, [camera]);
-    var postProcess = new BABYLON.PostProcess("anamorphic effects", "anamorphicEffects", [], null, 1, camera);
-    return scene;
 
+    return scene;
 };
 
 var deleteObjAfterDelay = function (obj, delay) { 
@@ -623,113 +531,6 @@ var createBackgroundFullOfBuildings = function (deep,color,scene) {
         buildingMaterial.specularColor = color;
     }
 };
-
-function thirdPersonMovement(up, down, left, right, jump, run)
-{
-    var directionZ = up-down;
-    var directionX = right-left;
-
-    var vectorMove = new BABYLON.Vector3.Zero();
-    var direction = Math.atan2(directionX, directionZ);
-
-    var currentState = idleAnim;
-    
-
-    //move
-    if (directionX != 0 || directionZ != 0)
-    {
-        if (run != 1)
-        {
-            currentState = runAnim;
-            speed = lerp(speed, runSpeed, runAnim.weight);
-        }else{
-            currentState = sprintAnim;
-            speed = lerp(speed, sprintSpeed, sprintAnim.weight);
-        }
-
-        var rotation = (target.rotation.y+direction) % 360;
-        character.rotation.y = lerp(
-            character.rotation.y, rotation, 0.25
-        );
-        
-        vectorMove = new BABYLON.Vector3(
-            (Math.sin(rotation)), 0,
-            (Math.cos(rotation))
-        );
-    }else{
-        speed = lerp(speed, 0, 0.001);
-    }
-
-
-    //jump
-    // if (jump == 1 && jumped == false)
-    // {
-    //     jumped = true;
-    // }
-    // if (jumped == true)
-    // {
-    //     // if (vsp < jumpHeight){
-    //     //     vsp += jumpHeight/10;
-    //     // }else{
-    //     //     vsp += gravity.y/10;
-    //     //     vsp = Math.min(vsp, gravity.y);
-    //     //     if (vsp == gravity.y){
-    //     //         vsp = gravity.y;
-    //     //         jumped = false;
-    //     //     }
-    //     // }
-    //     var rr = skeleton.getAnimationRange("None_Jump");
-    //     var a = scene.beginAnimation(skeleton, rr.from+1, rr.to, false, 1, function(){
-    //         jumped = false;console.log("stopped "+rr.from+1+" "+rr.to);
-    //     });
-    // }else{
-    //     vsp = gravity.y;
-    // }
-
-
-    var m = vectorMove.multiply(new BABYLON.Vector3().setAll( speed*deltaTime ));
-    main.moveWithCollisions( m.add(new BABYLON.Vector3(0, vsp, 0)) );
-    
-
-    switchAnimation(currentState);
-}
-var thirdPersonCamera = {
-    middle: {
-        position: new BABYLON.Vector3(0, 1.35, -5),
-        fov: 0.8,
-        mouseMin: -5,
-        mouseMax: 45
-    },
-    leftRun: {
-        position: new BABYLON.Vector3(0.7, 1.35, -4),
-        fov: 0.8,
-        mouseMin: -35,
-        mouseMax: 45
-    },
-    rightRun: {
-        position: new BABYLON.Vector3(-0.7, 1.35, -4),
-        fov: 0.8,
-        mouseMin: -35,
-        mouseMax: 45
-    },
-    far: {
-        position: new BABYLON.Vector3(0, 1.5, -6),
-        fov: 1.5,
-        mouseMin: -5,
-        mouseMax: 45
-    }
-};
-
-function updateCamera()
-{
-    target.rotation = lerp3(
-        target.rotation, 
-        new BABYLON.Vector3(
-            BABYLON.Tools.ToRadians(mouseY),
-            BABYLON.Tools.ToRadians(mouseX), 0
-        ), cameraSpeed*deltaTime
-    );
-}
         
 
 window.initFunction = async function() {
