@@ -44,6 +44,7 @@ var jumpSpeed = 0.3;
 var jumpHeight = 1;
 var jumped = false;
 var falled = false;
+var boing = false;
 var gravity = new BABYLON.Vector3(0, -0.5, 0);
 
 var lastUpdate = null;
@@ -102,27 +103,9 @@ var createScene = function () {
     var shadowGenerator = new BABYLON.ShadowGenerator(3072, dirLight);
     shadowGenerator.usePercentageCloserFiltering = true;
 
-
-    var helper = scene.createDefaultEnvironment({
-        enableGroundShadow: true,
-        enableGroundMirror: true,
-        groundMirrorFallOffDistance: 0,
-        groundSize: 150,
-        skyboxSize: 150,
-    });
-    helper.setMainColor(scene.clearColor);
-    helper.groundMaterial.diffuseTexture = null;
-    helper.groundMaterial.alpha = 1;
-    helper.groundMaterial.fogEnabled = true;
-
-
     var addShadows = function(mesh){
         mesh.receiveShadows = true;
         shadowGenerator.addShadowCaster(mesh);
-    }
-
-    var addToMirror = function(mesh){
-        helper.groundMirrorRenderList.push(mesh);
     }
     
 
@@ -334,12 +317,11 @@ var createScene = function () {
                 lastUpdate = Date.now();
                 vsp = 0;
             }
-            /*if (!jumped) {
-                vsp += gravity.y* ((Date.now() - lastUpdate)/10000);
-                vsp = Math.min(vsp, gravity.y);
-            }*/
         }
-        if (!_isGrounded(character) && !jumped && !falled) {
+        if (boing) {
+            vsp = jumpSpeed *2 + scene.gravity.y* ((Date.now() - lastUpdate)/10000)
+        }
+        if (!_isGrounded(character) && !jumped && !falled && !boing) {
             falled = true;
             lastUpdate = Date.now();
         }
@@ -357,6 +339,16 @@ var createScene = function () {
             vsp = jumpSpeed;
             lastUpdate = Date.now();
             jumped = true;
+        } else if (_isGrounded(character)) {
+            boing = false;
+            var ray = new BABYLON.Ray(new BABYLON.Vector3(character.absolutePosition.x, character.absolutePosition.y + -1.5, character.absolutePosition.z), BABYLON.Vector3.Down(), 0.1);
+            var hit = scene.pickWithRay(ray, predicate);
+            console.log(hit.pickedMesh);
+            if (hit.pickedMesh) { 
+                vsp = jumpSpeed;
+                lastUpdate = Date.now();
+                boing = true;
+            }
         }
             
 
@@ -364,6 +356,11 @@ var createScene = function () {
         main.moveWithCollisions( m.add(new BABYLON.Vector3(0, vsp, 0)) );
     }
 
+    function predicate(mesh) {
+        if (mesh.name == "boing") {
+            return true;
+        } else return false;
+    }
     function _floorRaycast(offsetx, offsetz, raycastlen,mesh) {
         //position the raycast from bottom center of mesh
         let raycastFloorPos = new BABYLON.Vector3(mesh.absolutePosition.x + offsetx, mesh.absolutePosition.y + -1.5, mesh.absolutePosition.z + offsetz);
@@ -460,41 +457,42 @@ var createScene = function () {
     //scenery
     var box = BABYLON.MeshBuilder.CreateBox("box", {size: 2}, scene);
     box.position = new BABYLON.Vector3(8, 1, 8);
-    addToMirror(box);
     addShadows(box);
     box.material = new BABYLON.StandardMaterial("lightBox", scene);
     box.material.emissiveColor = smallLight.diffuse;
 
     box = BABYLON.MeshBuilder.CreateBox("box", {size: 2}, scene);
     box.position = new BABYLON.Vector3(1, 1, 1);
-    addToMirror(box);
     addShadows(box);
     box.material = new BABYLON.StandardMaterial("lightBox", scene);
     box.material.emissiveColor = smallLight.diffuse;
 
+    var boingbox = BABYLON.MeshBuilder.CreateBox("boing", { size: 2 }, scene);
+    boingbox.position = new BABYLON.Vector3(8, 1, 8);
+    addShadows(boingbox);
+    boingbox.material = new BABYLON.StandardMaterial("lightBox", scene);
+    boingbox.material.emissiveColor = new BABYLON.Color3(1, 0, 0);
+    boingbox.checkCollisions = true;
     
     // GROUND
-    var ground = new BABYLON.MeshBuilder.CreateBox("ground", {width: 20, height: 100}, scene);
-    ground.position = new BABYLON.Vector3(0, 0, 20);
-    addToMirror(ground);
+    var wall = new BABYLON.MeshBuilder.CreateBox("wall", {width: 20, height: 100}, scene);
+    wall.position = new BABYLON.Vector3(0, 0, 20);
+    addShadows(wall);
+    wall.material = new BABYLON.StandardMaterial("lightBox", scene);
+    wall.material.emissiveColor = smallLight.diffuse;
+    wall.checkCollisions = true;
+    var ground = new BABYLON.MeshBuilder.CreateGround("ground", {width:100,height:100}, scene);
     addShadows(ground);
-    ground.material = new BABYLON.StandardMaterial("lightBox", scene);
-    ground.material.emissiveColor = smallLight.diffuse;
     ground.checkCollisions = true;
-
 
 
     var boxLight = smallLight.clone();
     boxLight.parent = box;
 
 /*
-        addToMirror(tower);
         addShadows(tower);
         tower.checkCollisions = true;
 */
-    
-    helper.ground.checkCollisions = true;
-    helper.skybox.checkCollisions = true;
     box.checkCollisions = true;
 
     //genereteLvl(createLvl);
@@ -507,7 +505,6 @@ var deleteObjAfterDelay = function (obj, delay) {
         obj.dispose();
     }, delay);
 }
-
 var fireAmmo = function (position, direction) {
     var ammo = new BABYLON.MeshBuilder.CreateCylinder("ammo", { diameter: 0.5, height: 0.5 }, scene);
     ammo.position = position;
@@ -515,7 +512,7 @@ var fireAmmo = function (position, direction) {
     ammoCoolider.isVisible = false;
     ammo.addChild(ammoCoolider);
     const agg = new BABYLON.PhysicsAggregate(ammo, BABYLON.PhysicsShapeType.BOX, { mass: 1, center: new BABYLON.Vector3(0,0,0), rotation: BABYLON.Quaternion.Identity(), extents: new BABYLON.Vector3(1, 1, 1) }, scene);
-    agg.body.applyImpulse(direction, position)
+    agg.body.applyImpulse(direction, position);
     agg.body.setCollisionCallbackEnabled(true);
     agg.body.getCollisionObservable().add(bodyCollideCB);
     deleteObjAfterDelay(ammo, 1000);
@@ -528,49 +525,6 @@ var bodyCollideCB = function (collision) {
     platforme.material.emissiveColor = new BABYLON.Color3(1, 0, 0);
     collision.collider.dispose();
 }
-//genere un niveau 2D a la super mario
-var createLvl = function () {
-    var level = [
-        "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
-        "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
-        "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
-        "XXXXXXXXXXXXXXXBXXXXXXXXXXXXXXXXXXXXXXX",
-        "XXXXXXXXXXXXXXXXBBXXXXXXXXXXXXXXXXXXXXX",
-        "XXXXXXXXXXXXXXXBXXXXXXXXXXXXXXXXXXXXXXX",
-        "XXXXXXXXXXBBBBBXXXXXXXXXBBBBXXXXXXXXXXX",
-        "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"
-    ];
-    return level;
-}
-var genereteLvl = function (level,scene) {
-    var buildingMaterial = new BABYLON.StandardMaterial("buildingMateriallvl", scene);
-    var root = new BABYLON.Mesh("root", scene);
-    for (var i = 0; i < level.length; i++) {
-        for (var j = 0; j < level[i].length; j++) {
-            if (level[i][j] == "X") {
-                
-            }
-            if (level[i][j] == "B") {
-                var build = BABYLON.Mesh.CreateBox("lvl", 1, scene);
-                root.addChild(build);
-                build.layerMask = 36;
-                build.scaling.y = 0.1
-                build.position.x = - level[i].length/2 + j;
-                build.position.y = level.length - i -1;
-                build.position.z = 0;
-                build.checkCollisions = true;
-                build.isPickable = true;
-                build.material = buildingMaterial;
-                buildingMaterial.diffuseColor = new BABYLON.Color3(1, 0.1, 0.1);
-                buildingMaterial.diffuseColor = new BABYLON.Color3(1, 0.1, 0.1);
-                //build.physicsImpostor =  new BABYLON.PhysicsImpostor(build, BABYLON.PhysicsImpostor.CubeImpostor, { mass: 0}, scene);
-
-            }
-        }
-    }
-    return root;
-}
-
 var createPlayer = function (scene) {
     var outer = BABYLON.MeshBuilder.CreateBox("outer", {size:3}, scene);
     outer.isVisible = false;
@@ -590,7 +544,6 @@ var createPlayer = function (scene) {
     body.parent = outer;
     return outer;
 }
-
 var createGui = function (scene) {
     var button = document.createElement("button");
     button.style.top = "100px";
@@ -625,7 +578,7 @@ var createBackgroundFullOfBuildings = function (deep,color,scene) {
         buildingMaterial.specularColor = color;
     }
 };
-        
+      
 
 window.initFunction = async function() {
 
