@@ -42,6 +42,8 @@ var runSpeed = 0.005;
 var sprintSpeed = 0.008;
 var jumpSpeed = 0.3;
 var jumpHeight = 1;
+var jumped = false;
+var falled = false;
 var gravity = new BABYLON.Vector3(0, -0.5, 0);
 
 var lastUpdate = null;
@@ -49,11 +51,11 @@ var lastUpdate = null;
 //in-game changed variables
 var speed = 0;
 var vsp = 0;
-var jumped = false;
-var falled = false;
+
 var mouseX = 0, mouseY = 0;
 var mouseMin = -35, mouseMax = 45;
 
+var firerate = 1;
 
 
 
@@ -232,10 +234,10 @@ var createScene = function () {
                     keyboard.getInput(32), //Space
                     keyboard.getInput(16), //Shift
                 );
-                /*shootASeed(
+                shootASeed(
                     keyboard.getInput(70), //F
                     character
-                );*/
+                );
                 
             }
         }
@@ -275,10 +277,12 @@ var createScene = function () {
         );
     }
 
-    
+    let firetime = Date.now();
     function shootASeed(fire, character) {
-        if (fire) {
-            fireAmmo(character.absolutePosition,new BABYLON.Vector3(0,0,5));
+        let r = 100;
+        if (fire && (Date.now() - firetime)/1000 > firerate) {
+            fireAmmo(character.absolutePosition, new BABYLON.Vector3(r*Math.sin(character.rotation.y),0,r*Math.cos(character.rotation.y)));
+            firetime = Date.now();
         }
 
     }
