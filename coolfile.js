@@ -37,8 +37,8 @@ var jumpAnim = null;
 var animationBlend = 0.005;
 var mouseSensitivity = 0.01;
 var cameraSpeed = 0.0075;
-var walkSpeed = 0.001;
-var runSpeed = 0.005;
+var walkSpeed = 0.005;
+var runSpeed = 0.01;
 var sprintSpeed = 0.008;
 var jumpSpeed = 0.3;
 var jumpHeight = 1;
@@ -55,7 +55,7 @@ var vsp = 0;
 var mouseX = 0, mouseY = 0;
 var mouseMin = -35, mouseMax = 45;
 
-var firerate = 1;
+var firerate = .1;
 
 
 
@@ -64,8 +64,15 @@ var createScene = function () {
     var scene = new BABYLON.Scene(engine);
     scene.collisionsEnabled = true;
     scene.gravity = new BABYLON.Vector3(0, -9.81, 0);
-
-    scene.enablePhysics(new BABYLON.Vector3(0, -9.8, 0));
+ 
+    if (!HK) {
+        console.error("Havok plugin not initialized");
+        return;
+    } else console.log(HK);
+    const hk = new BABYLON.HavokPlugin(HK);
+    scene.enablePhysics(new BABYLON.Vector3(0, -10, 0), hk);
+    var physicsEngine = scene.getPhysicsEngine();
+    //scene.enablePhysics(new BABYLON.Vector3(0, -9.8, 0));
     
     
     scene.fogEnabled = true;
@@ -73,8 +80,6 @@ var createScene = function () {
 	scene.fogDensity = 0.01;
     scene.fogColor = new BABYLON.Color3(0.8, 0.9, 1.0);
     scene.clearColor = scene.fogColor;
-
-
 
     // This creates and positions a free camera (non-mesh)
     var camera = new BABYLON.UniversalCamera("camera", new BABYLON.Vector3.Zero(), scene);
@@ -284,7 +289,6 @@ var createScene = function () {
             fireAmmo(character.absolutePosition, new BABYLON.Vector3(r*Math.sin(character.rotation.y),0,r*Math.cos(character.rotation.y)));
             firetime = Date.now();
         }
-
     }
 
     function thirdPersonMovement(up, down, left, right, jump, run)
@@ -461,6 +465,25 @@ var createScene = function () {
     box.material = new BABYLON.StandardMaterial("lightBox", scene);
     box.material.emissiveColor = smallLight.diffuse;
 
+    box = BABYLON.MeshBuilder.CreateBox("box", {size: 2}, scene);
+    box.position = new BABYLON.Vector3(1, 1, 1);
+    addToMirror(box);
+    addShadows(box);
+    box.material = new BABYLON.StandardMaterial("lightBox", scene);
+    box.material.emissiveColor = smallLight.diffuse;
+
+    
+    // GROUND
+    var ground = new BABYLON.MeshBuilder.CreateBox("ground", {width: 20, height: 100}, scene);
+    ground.position = new BABYLON.Vector3(0, 0, 20);
+    addToMirror(ground);
+    addShadows(ground);
+    ground.material = new BABYLON.StandardMaterial("lightBox", scene);
+    ground.material.emissiveColor = smallLight.diffuse;
+    ground.checkCollisions = true;
+
+
+
     var boxLight = smallLight.clone();
     boxLight.parent = box;
 
@@ -491,12 +514,19 @@ var fireAmmo = function (position, direction) {
     var ammoCoolider = new BABYLON.MeshBuilder.CreateBox("ammocollider", { size: 1 }, scene);
     ammoCoolider.isVisible = false;
     ammo.addChild(ammoCoolider);
-    ammo.physicsImpostor = new BABYLON.PhysicsImpostor(ammo, BABYLON.PhysicsImpostor.BoxImpostor, { mass: 1 }, scene);
-    //ammoCoolider.physicsImpostor.setLinearVelocity(new BABYLON.Vector3(0, 0, 0)); // ?
-    //ammoCoolider.physicsImpostor.setAngularVelocity(new BABYLON.Vector3(0, 0, 0)); // ?
-    //throw ammo;
-    ammo.physicsImpostor.applyImpulse(direction, position)
+    const agg = new BABYLON.PhysicsAggregate(ammo, BABYLON.PhysicsShapeType.BOX, { mass: 1, center: new BABYLON.Vector3(0,0,0), rotation: BABYLON.Quaternion.Identity(), extents: new BABYLON.Vector3(1, 1, 1) }, scene);
+    agg.body.applyImpulse(direction, position)
+    agg.body.setCollisionCallbackEnabled(true);
+    agg.body.getCollisionObservable().add(bodyCollideCB);
     deleteObjAfterDelay(ammo, 1000);
+}
+var bodyCollideCB = function (collision) {
+    console.log('Body collideCB', collision,collision.collider.transformNode.name, collision.point, collision.distance, collision.impulse, collision.normal);
+    var platforme = new BABYLON.MeshBuilder.CreateBox("box", { size: 4 }, scene);
+    platforme.position = collision.point;
+    platforme.material = new BABYLON.StandardMaterial("lightBox", scene);
+    platforme.material.emissiveColor = new BABYLON.Color3(1, 0, 0);
+    collision.collider.dispose();
 }
 //genere un niveau 2D a la super mario
 var createLvl = function () {

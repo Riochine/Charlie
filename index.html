@@ -19,6 +19,24 @@
         <script src="https://cdn.babylonjs.com/serializers/babylonjs.serializers.min.js"></script>
         <script src="https://cdn.babylonjs.com/gui/babylon.gui.min.js"></script>
         <script src="https://cdn.babylonjs.com/inspector/babylon.inspector.bundle.js"></script>
+        <script src="https://cdn.babylonjs.com/havok/HavokPhysics_umd.js"></script>
+            <script>
+                // before initializing your babylon scene:
+                var havokInstance;
+                console.log(havokInstance);
+                var HK = null;
+                HavokPhysics().then((havok) => {
+                    // Havok is now available
+                    HK = havok;
+
+                    var script = document.createElement('script');
+                    script.src = 'coolfile.js';
+                    document.head.appendChild(script);
+                });
+
+
+                                  // later in code you can use havokInstance to initialize the plugin
+            </script>
         <style>
             html, body {
                 overflow: hidden;
@@ -29,7 +47,7 @@
             }
 
             #renderCanvas {
-                width: 100%;
+                width: 100%; 
                 height: 100%;
                 touch-action: none;
             }
@@ -37,6 +55,5 @@
     </head>
 <body>
     <canvas id="renderCanvas"></canvas>
-    <script src="coolfile.js"></script>
 </body>
 </html>
