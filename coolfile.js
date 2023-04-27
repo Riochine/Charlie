@@ -40,14 +40,17 @@ var cameraSpeed = 0.0075;
 var walkSpeed = 0.001;
 var runSpeed = 0.005;
 var sprintSpeed = 0.008;
-var jumpSpeed = 0.1;
-var jumpHeight = 0.5;
+var jumpSpeed = 0.3;
+var jumpHeight = 1;
 var gravity = new BABYLON.Vector3(0, -0.5, 0);
+
+var lastUpdate = null;
 
 //in-game changed variables
 var speed = 0;
 var vsp = 0;
 var jumped = false;
+var falled = false;
 var mouseX = 0, mouseY = 0;
 var mouseMin = -35, mouseMax = 45;
 
@@ -60,6 +63,9 @@ var createScene = function () {
     scene.collisionsEnabled = true;
     scene.gravity = new BABYLON.Vector3(0, -9.81, 0);
 
+    scene.enablePhysics(new BABYLON.Vector3(0, -9.8, 0));
+    
+    
     scene.fogEnabled = true;
     scene.fogMode = BABYLON.Scene.FOGMODE_EXP2;
 	scene.fogDensity = 0.01;
@@ -190,7 +196,7 @@ var createScene = function () {
 
     //character
     engine.displayLoadingUI();
-    character = createPlayer(scene);
+    var character = createPlayer(scene);
     main.ellipsoid = new BABYLON.Vector3(0.5, 0.9, 0.5);
     main.ellipsoidOffset = new BABYLON.Vector3(0, main.ellipsoid.y, 0);
     main.checkCollisions = true;
@@ -226,6 +232,10 @@ var createScene = function () {
                     keyboard.getInput(32), //Space
                     keyboard.getInput(16), //Shift
                 );
+                /*shootASeed(
+                    keyboard.getInput(70), //F
+                    character
+                );*/
                 
             }
         }
@@ -265,8 +275,13 @@ var createScene = function () {
         );
     }
 
+    
+    function shootASeed(fire, character) {
+        if (fire) {
+            fireAmmo(character.absolutePosition,new BABYLON.Vector3(0,0,5));
+        }
 
-
+    }
 
     function thirdPersonMovement(up, down, left, right, jump, run)
     {
@@ -299,32 +314,74 @@ var createScene = function () {
             speed = lerp(speed, 0, 0.001);
         }
 
-
-        //jump
         
-         if (jump == 1 && jumped == false)
-         {
-             jumped = true;
-         }
-         if (jumped == true)
-         {
-              if (vsp < jumpHeight){
-                  vsp += jumpHeight/10;
-              }else{
-                  vsp += gravity.y/10;
-                  vsp = Math.min(vsp, gravity.y);
-                  if (vsp == gravity.y){
-                      vsp = gravity.y;
-                      jumped = false;
-                  }
-              }
-         }else{
-             vsp = gravity.y;
-         }
 
+
+        //gravity
+        if (jumped ) {
+            vsp = jumpSpeed + scene.gravity.y* ((Date.now() - lastUpdate)/10000)
+            console.log((Date.now() - lastUpdate) / 1000);
+            if (_isGrounded(character)) {
+                jumped = false;
+                lastUpdate = Date.now();
+                vsp = 0;
+            }
+            /*if (!jumped) {
+                vsp += gravity.y* ((Date.now() - lastUpdate)/10000);
+                vsp = Math.min(vsp, gravity.y);
+            }*/
+        }
+        if (!_isGrounded(character) && !jumped && !falled) {
+            falled = true;
+            lastUpdate = Date.now();
+        }
+        if (falled) {
+            vsp = scene.gravity.y * ((Date.now() - lastUpdate) / 10000);
+            if (_isGrounded(character)) {
+                falled = false;
+                lastUpdate = Date.now();
+                vsp = 0;
+            }
+        }
+                //jump use _floorRaycast & _isGrounded
+        if (jump == 1 && _isGrounded(character) && !jumped)
+        {
+            vsp = jumpSpeed;
+            lastUpdate = Date.now();
+            jumped = true;
+        }
+            
 
         var m = vectorMove.multiply(new BABYLON.Vector3().setAll( speed*deltaTime ));
         main.moveWithCollisions( m.add(new BABYLON.Vector3(0, vsp, 0)) );
+    }
+
+    function _floorRaycast(offsetx, offsetz, raycastlen,mesh) {
+        //position the raycast from bottom center of mesh
+        let raycastFloorPos = new BABYLON.Vector3(mesh.absolutePosition.x + offsetx, mesh.absolutePosition.y + -1.5, mesh.absolutePosition.z + offsetz);
+        let ray = new BABYLON.Ray(raycastFloorPos, BABYLON.Vector3.Down(), raycastlen);
+        //BABYLON.RayHelper.CreateAndShow(ray, scene, BABYLON.Color3.Red()); //visualize raycast
+
+        //defined which type of meshes should be pickable
+        let predicate = function (mesh) {
+            return mesh.isPickable && mesh.isEnabled();
+        }
+
+        let pick = scene.pickWithRay(ray, predicate);
+
+        if (pick.hit) { //grounded
+            return pick.pickedPoint;
+        } else { //not grounded
+            return BABYLON.Vector3.Zero();
+        }
+    }
+        //raycast from the center of the player to check for whether player is grounded
+    function _isGrounded(character){
+        if (_floorRaycast(0, 0, .1,character).equals(BABYLON.Vector3.Zero())) {
+            return false;
+        } else {
+            return true;
+        }
     }
 
 
@@ -413,6 +470,8 @@ var createScene = function () {
     helper.skybox.checkCollisions = true;
     box.checkCollisions = true;
 
+    //genereteLvl(createLvl);
+
     return scene;
 };
 
@@ -466,6 +525,7 @@ var genereteLvl = function (level,scene) {
                 build.position.y = level.length - i -1;
                 build.position.z = 0;
                 build.checkCollisions = true;
+                build.isPickable = true;
                 build.material = buildingMaterial;
                 buildingMaterial.diffuseColor = new BABYLON.Color3(1, 0.1, 0.1);
                 buildingMaterial.diffuseColor = new BABYLON.Color3(1, 0.1, 0.1);
@@ -478,9 +538,9 @@ var genereteLvl = function (level,scene) {
 }
 
 var createPlayer = function (scene) {
-    var outer = BABYLON.MeshBuilder.CreateBox("outer", {size:4}, scene);
+    var outer = BABYLON.MeshBuilder.CreateBox("outer", {size:3}, scene);
     outer.isVisible = false;
-    outer.position.y = 2;
+    outer.position.y = 1.5;
     outer.isPickable = false;
     //black cube to signify front of mesh
     var box = BABYLON.MeshBuilder.CreateBox("Small1", { width: 0.5, depth: 0.5, height: 0.25, faceColors: [0,0,0,0,0,0] }, scene);
